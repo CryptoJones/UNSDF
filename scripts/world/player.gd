@@ -1,25 +1,52 @@
 class_name Player
 extends Node2D
-## Grid-locked, push/pull movement. No dash, no combat (per the locked spec).
-## Walk into a crate to push it; hold Grab and back straight away to pull it.
+## Grid-stepped, 8-direction movement with a painted character sprite that faces
+## the way you move. Walk into a crate (cardinally) to push it; hold Grab and back
+## straight out of a faced crate to pull it.
 
 const STEP_TIME := 0.10
+const TARGET_H := 54.0   # on-screen sprite height in the 320x240 space
+
+# facing vector -> sprite asset suffix
+const DIRS := {
+	Vector2i(0, 1): "down", Vector2i(0, -1): "up",
+	Vector2i(-1, 0): "left", Vector2i(1, 0): "right",
+	Vector2i(-1, 1): "down_left", Vector2i(1, 1): "down_right",
+	Vector2i(-1, -1): "up_left", Vector2i(1, -1): "up_right",
+}
 
 var cell: Vector2i
-var facing := Vector2i.DOWN
+var facing := Vector2i(0, 1)
 var room   # Room
 
 var _busy := false
+var _sprite: Sprite2D
+var _tex: Dictionary = {}
 
 
 func _ready() -> void:
 	z_index = 20
+	for d in DIRS:
+		_tex[d] = load("res://assets/sprites/recruit_%s.png" % DIRS[d])
+	_sprite = Sprite2D.new()
+	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	add_child(_sprite)
+	_update_sprite()
 
 
 func place(c: Vector2i) -> void:
 	cell = c
 	position = Grid.cell_to_pos(c)
-	queue_redraw()
+
+
+func _update_sprite() -> void:
+	var t: Texture2D = _tex.get(facing)
+	if t == null:
+		return
+	_sprite.texture = t
+	var s := TARGET_H / float(t.get_height())
+	_sprite.scale = Vector2(s, s)
+	_sprite.position = Vector2(0, -TARGET_H * 0.42)   # lift so the feet sit on the cell
 
 
 func _process(_delta: float) -> void:
@@ -34,27 +61,30 @@ func _locked_out() -> bool:
 	return room == null or DialogueManager.active or RoomManager.is_busy()
 
 
+## Combine the axes into one of eight directions.
 func _read_dir() -> Vector2i:
-	if Input.is_action_pressed("move_up"):
-		return Vector2i.UP
-	if Input.is_action_pressed("move_down"):
-		return Vector2i.DOWN
-	if Input.is_action_pressed("move_left"):
-		return Vector2i.LEFT
-	if Input.is_action_pressed("move_right"):
-		return Vector2i.RIGHT
-	return Vector2i.ZERO
+	var dx := int(Input.is_action_pressed("move_right")) - int(Input.is_action_pressed("move_left"))
+	var dy := int(Input.is_action_pressed("move_down")) - int(Input.is_action_pressed("move_up"))
+	return Vector2i(dx, dy)
 
 
 func _attempt(dir: Vector2i) -> void:
-	if Input.is_action_pressed("grab"):
+	var cardinal := dir.x == 0 or dir.y == 0
+
+	if cardinal and Input.is_action_pressed("grab"):
 		_attempt_pull(dir)
 		return
 
 	facing = dir
-	queue_redraw()
+	_update_sprite()
 
 	var target := cell + dir
+
+	# Don't let a diagonal step squeeze between two wall corners.
+	if not cardinal:
+		if room.is_wall(cell + Vector2i(dir.x, 0)) and room.is_wall(cell + Vector2i(0, dir.y)):
+			return
+
 	var door: String = room.door_dir_for(target)
 	if door != "":
 		RoomManager.use_exit(door)
@@ -64,6 +94,8 @@ func _attempt(dir: Vector2i) -> void:
 
 	var crate = room.crate_at(target)
 	if crate != null:
+		if not cardinal:
+			return   # crates only push along cardinals
 		var beyond := target + dir
 		if room.can_crate_enter(beyond):
 			room.move_crate(target, beyond)
@@ -108,13 +140,3 @@ func _unhandled_input(event: InputEvent) -> void:
 		if n != null:
 			DialogueManager.start(n)
 			get_viewport().set_input_as_handled()
-
-
-func _draw() -> void:
-	var s := float(Grid.TILE)
-	var half := s * 0.5
-	var body := Rect2(-half + 2, -half + 2, s - 4, s - 4)
-	draw_rect(body, Color("d6e0ea"))
-	draw_rect(body, Color("3a4a63"), false, 1.0)
-	var f := Vector2(facing)
-	draw_rect(Rect2(f.x * 4.0 - 2.0, f.y * 4.0 - 2.0, 4, 4), Color("e85a3a"))

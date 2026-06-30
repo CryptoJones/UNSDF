@@ -8,8 +8,13 @@ const COLS := 20
 const ROWS := 15
 const SCREEN := Vector2(COLS * TILE, ROWS * TILE)   # 320 x 240
 
+# The painted rooms carry a ~2-cell wall border around an open floor, so the
+# walkable interior is inset by this many cells on every side (door tunnels
+# excepted).
+const WALL_INSET := 2
+
 # Door gaps are centered on each wall, two cells wide. The interior spawn cell
-# is the tile just inside that gap.
+# is the tile just inside that gap (past the wall border).
 const NS_DOOR_COLS := [9, 10]   # north/south gap columns
 const EW_DOOR_ROWS := [7, 8]    # east/west gap rows
 
@@ -40,8 +45,8 @@ static func opposite(side: String) -> String:
 ## when they enter a room from that side.
 static func spawn_cell_for(side: String) -> Vector2i:
 	match side:
-		"north": return Vector2i(NS_DOOR_COLS[0], 1)
-		"south": return Vector2i(NS_DOOR_COLS[0], ROWS - 2)
-		"west": return Vector2i(1, EW_DOOR_ROWS[0])
-		"east": return Vector2i(COLS - 2, EW_DOOR_ROWS[0])
+		"north": return Vector2i(NS_DOOR_COLS[0], WALL_INSET)
+		"south": return Vector2i(NS_DOOR_COLS[0], ROWS - 1 - WALL_INSET)
+		"west": return Vector2i(WALL_INSET, EW_DOOR_ROWS[0])
+		"east": return Vector2i(COLS - 1 - WALL_INSET, EW_DOOR_ROWS[0])
 	return Vector2i(COLS / 2, ROWS / 2)

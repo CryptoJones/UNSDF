@@ -32,7 +32,7 @@ static var ROOMS := {
 			"east": {"to": &"A2"},
 		},
 		"npcs": [
-			{"cell": Vector2i(10, 4), "name": "UNSDF Recruiter", "dialogue": &"recruiter", "color": Color("6e7a8a")},
+			{"cell": Vector2i(10, 7), "name": "UNSDF Recruiter", "dialogue": &"recruiter", "color": Color("6e7a8a")},
 		],
 	},
 	&"A2": {
@@ -79,7 +79,7 @@ static var ROOMS := {
 			"south": {"to": &"C1"},
 		},
 		"npcs": [
-			{"cell": Vector2i(7, 7), "name": "Station Janitor", "dialogue": &"janitor", "color": Color("5a6e4a")},
+			{"cell": Vector2i(7, 7), "name": "Trevor Flurry", "dialogue": &"janitor", "color": Color("5a6e4a")},
 			{"cell": Vector2i(13, 7), "name": "Business Traveler", "dialogue": &"traveler", "color": Color("8a7a5a")},
 		],
 	},
@@ -133,7 +133,7 @@ static var ROOMS := {
 			"south": {"to": &"D2", "lock": {"item": &"access_keycard", "msg": "CARGO BAY keypad locked. [Access Keycard required]"}},
 		},
 		"npcs": [
-			{"cell": Vector2i(10, 5), "name": "Station Technician", "dialogue": &"technician", "color": Color("4a7a6e")},
+			{"cell": Vector2i(10, 8), "name": "Station Technician", "dialogue": &"technician", "color": Color("4a7a6e")},
 		],
 	},
 	&"C3": {

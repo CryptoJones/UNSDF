@@ -13,6 +13,7 @@ var _choices: Array = []
 var _sel := 0
 var _speaker := ""
 var _portrait := Color("6e7a8a")
+var _portrait_id := ""
 
 
 ## npc = { dialogue: StringName, name: String, color: Color }
@@ -25,6 +26,7 @@ func start(npc: Dictionary) -> void:
 	_tree = tree
 	_speaker = npc.get("name", "")
 	_portrait = npc.get("color", Color("6e7a8a"))
+	_portrait_id = String(npc.get("dialogue", &""))
 	active = true
 	started.emit()
 	_goto(_resolve_start())
@@ -44,7 +46,7 @@ func _goto(node_id: String) -> void:
 	_choices = _visible_choices(node)
 	_sel = 0
 	if hud:
-		hud.show_dialogue(node.get("speaker", _speaker), _portrait, node.get("text", ""), _choice_labels())
+		hud.show_dialogue(node.get("speaker", _speaker), _portrait, node.get("text", ""), _choice_labels(), _portrait_id)
 
 
 func _choice_labels() -> Array:

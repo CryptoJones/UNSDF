@@ -16,9 +16,13 @@ var _puzzle: Dictionary = {}
 
 var _crates: Dictionary = {}   # Vector2i -> Pushable
 var _npcs: Dictionary = {}     # Vector2i -> npc dict
+var _npc_sprited: Dictionary = {}   # Vector2i -> true if a painted sprite exists
 var _items: Dictionary = {}    # Vector2i -> { item: StringName }
 var _cameras: Array = []
 var _cam_time := 0.0
+var _amb := 0.0                # ambient clock for item glow / hazard pulse
+var _hazard := false
+var _bg_tex: Texture2D = null   # painted room background, if one exists
 
 
 func setup(id: StringName, data: Dictionary) -> void:
@@ -29,6 +33,8 @@ func setup(id: StringName, data: Dictionary) -> void:
 	_wall = data.get("wall", RoomDB.WALL)
 	_plates = data.get("plates", [])
 	_puzzle = data.get("puzzle", {})
+	_hazard = bool(data.get("hazard", false))
+	_add_background()
 
 	for c in data.get("crates", []):
 		var crate := Pushable.new()
@@ -38,6 +44,7 @@ func setup(id: StringName, data: Dictionary) -> void:
 
 	for n in data.get("npcs", []):
 		_npcs[n["cell"]] = n
+		_add_npc_sprite(n)
 
 	for it in data.get("items", []):
 		if GameState.has_flag(_taken_flag(it["item"])):
@@ -72,12 +79,30 @@ func start_cell() -> Vector2i:
 func is_wall(c: Vector2i) -> bool:
 	if c.x < 0 or c.y < 0 or c.x >= Grid.COLS or c.y >= Grid.ROWS:
 		return true
-	var border := c.x == 0 or c.y == 0 or c.x == Grid.COLS - 1 or c.y == Grid.ROWS - 1
+	var inset := Grid.WALL_INSET
+	var border := c.x < inset or c.y < inset or c.x >= Grid.COLS - inset or c.y >= Grid.ROWS - inset
 	if border:
-		return door_dir_for(c) == ""
+		return door_tunnel_dir(c) == ""   # solid unless this cell is a door tunnel
 	return false
 
 
+## The side whose door tunnel passes through cell c (anywhere in the 2-cell wall
+## band). Keeps a door passable end-to-end. "" if c is solid wall.
+func door_tunnel_dir(c: Vector2i) -> String:
+	var inset := Grid.WALL_INSET
+	if c.y < inset and exits.has("north") and c.x in Grid.NS_DOOR_COLS:
+		return "north"
+	if c.y >= Grid.ROWS - inset and exits.has("south") and c.x in Grid.NS_DOOR_COLS:
+		return "south"
+	if c.x < inset and exits.has("west") and c.y in Grid.EW_DOOR_ROWS:
+		return "west"
+	if c.x >= Grid.COLS - inset and exits.has("east") and c.y in Grid.EW_DOOR_ROWS:
+		return "east"
+	return ""
+
+
+## The side to transition through — only the OUTERMOST door cell triggers an exit
+## (you walk through the tunnel first, then step out).
 func door_dir_for(c: Vector2i) -> String:
 	if c.y == 0 and exits.has("north") and c.x in Grid.NS_DOOR_COLS:
 		return "north"
@@ -103,7 +128,7 @@ func item_at(c: Vector2i):
 
 
 func can_crate_enter(c: Vector2i) -> bool:
-	if is_wall(c) or door_dir_for(c) != "":
+	if is_wall(c) or door_tunnel_dir(c) != "":
 		return false
 	if _crates.has(c) or _npcs.has(c):
 		return false
@@ -164,10 +189,15 @@ func _taken_flag(item: StringName) -> StringName:
 # --- cameras -------------------------------------------------------------------
 
 func _process(delta: float) -> void:
+	_amb += delta
+	# Repaint when something is alive on screen (camera cones, glowing pickups,
+	# hazard alarm wash). Static rooms only repaint on entry, so this stays cheap.
+	if not _cameras.is_empty() or not _items.is_empty() or _hazard:
+		queue_redraw()
+
 	if _cameras.is_empty():
 		return
 	_cam_time += delta
-	queue_redraw()
 	if RoomManager.is_busy() or DialogueManager.active:
 		return
 	var p = RoomManager.player
@@ -198,18 +228,51 @@ func _camera_cells(cam: Dictionary) -> Array:
 	return out
 
 
-# --- rendering (placeholder) ---------------------------------------------------
+# --- background ----------------------------------------------------------------
+
+## Load the painted background for this room (assets/backgrounds/<id>.png) into a
+## child Sprite2D scaled to fill the screen and sat behind the interactive layer.
+func _add_background() -> void:
+	var path := "res://assets/backgrounds/%s.png" % String(room_id).to_lower()
+	if not ResourceLoader.exists(path):
+		_bg_tex = null
+		return
+	_bg_tex = load(path)
+	var bg := Sprite2D.new()
+	bg.texture = _bg_tex
+	bg.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	bg.centered = false
+	bg.z_index = -10
+	bg.scale = Vector2(Grid.SCREEN.x / _bg_tex.get_width(), Grid.SCREEN.y / _bg_tex.get_height())
+	add_child(bg)
+
+
+## Give an NPC a painted sprite (assets/sprites/npc_<dialogue>.png) if one exists;
+## otherwise it falls back to the procedural marker drawn in _draw().
+func _add_npc_sprite(n: Dictionary) -> void:
+	var did := String(n.get("dialogue", ""))
+	var path := "res://assets/sprites/npc_%s.png" % did
+	if did == "" or not ResourceLoader.exists(path):
+		return
+	var tex: Texture2D = load(path)
+	var spr := Sprite2D.new()
+	spr.texture = tex
+	spr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	var target_h := 54.0
+	spr.scale = Vector2.ONE * (target_h / tex.get_height())
+	spr.position = Grid.cell_to_pos(n["cell"]) + Vector2(0, -target_h * 0.42)
+	spr.z_index = 10
+	add_child(spr)
+	_npc_sprited[n["cell"]] = true
+
+
+# --- rendering (interactive layer over the painted background) ------------------
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, Grid.SCREEN), _floor)
+	if _bg_tex == null:
+		draw_rect(Rect2(Vector2.ZERO, Grid.SCREEN), Color("12161e"))   # fallback fill
 
-	for x in range(Grid.COLS):
-		_draw_border_cell(Vector2i(x, 0))
-		_draw_border_cell(Vector2i(x, Grid.ROWS - 1))
-	for y in range(Grid.ROWS):
-		_draw_border_cell(Vector2i(0, y))
-		_draw_border_cell(Vector2i(Grid.COLS - 1, y))
-
+	_draw_door_marks()
 	for p in _plates:
 		_draw_plate(p)
 	if not _puzzle.is_empty() and GameState.has_flag(_puzzle.get("solve_flag", &"")):
@@ -217,66 +280,131 @@ func _draw() -> void:
 	for c in _items:
 		_draw_item(c, _items[c])
 	for c in _npcs:
-		_draw_npc(c, _npcs[c])
+		if not _npc_sprited.has(c):
+			_draw_npc(c, _npcs[c])   # procedural fallback until a sprite exists
 	for cam in _cameras:
 		_draw_camera(cam)
-	_draw_door_marks()
 
 
 func _tile_rect(c: Vector2i) -> Rect2:
 	return Rect2(c.x * Grid.TILE, c.y * Grid.TILE, Grid.TILE, Grid.TILE)
 
 
-func _draw_border_cell(c: Vector2i) -> void:
+## Interior cells that gameplay owns — decor must not paint over these.
+func _occupied_cells() -> Dictionary:
+	var occ: Dictionary = {}
+	for c in _npcs:
+		occ[c] = true
+	for c in _items:
+		occ[c] = true
+	for c in _crates:
+		occ[c] = true
+	for p in _plates:
+		occ[p] = true
+	for cam in _cameras:
+		occ[cam["cell"]] = true
+	if not _puzzle.is_empty():
+		occ[_puzzle.get("reward", {}).get("cell", Vector2i(10, 2))] = true
+	return occ
+
+
+func _draw_border_cell(c: Vector2i, wall_tex: Texture2D) -> void:
 	var r := _tile_rect(c)
 	if is_wall(c):
-		draw_rect(r, _wall)
-		draw_line(r.position, r.position + Vector2(Grid.TILE, 0), _wall.lightened(0.2), 1.0)
+		draw_texture(wall_tex, r.position)
 	else:
-		draw_rect(r, _floor.lightened(0.10))
+		# Door threshold: a lit floor lip so openings read as passable.
+		draw_rect(r, _floor.lightened(0.16))
+		draw_rect(r, _floor.darkened(0.3), false, 1.0)
 
 
 func _draw_plate(p: Vector2i) -> void:
 	var pressed := _crates.has(p)
-	draw_rect(_tile_rect(p).grow(-3), Color("e8a23a") if pressed else Color("6e5a3a"))
-	draw_rect(_tile_rect(p).grow(-2), Color("3a2e1a"), false, 1.0)
+	var r := _tile_rect(p)
+	draw_rect(r.grow(-2), Color("2a2214"))
+	var face := r.grow(-3)
+	draw_rect(face, Color("e8a23a") if pressed else Color("6e5a3a"))
+	# Inset bevel: dark bottom-right, light top-left.
+	draw_rect(face, Color("3a2e1a"), false, 1.0)
+	draw_line(face.position, face.position + Vector2(face.size.x, 0), Color("ffd27a") if pressed else Color("8a7048"), 1.0)
+	if pressed:
+		draw_rect(r.grow(-1), Color(0.95, 0.7, 0.25, 0.10))   # glow when held
 
 
 func _draw_cache() -> void:
 	var rc: Vector2i = _puzzle.get("reward", {}).get("cell", Vector2i(10, 2))
-	var r := _tile_rect(rc).grow(-1)
-	draw_rect(r, Color("12303a"))
-	draw_rect(r, Color("4ad6e8"), false, 1.0)
+	var r := _tile_rect(rc)
+	draw_rect(r.grow(-1), Color("0c2028"))
+	draw_rect(r.grow(-3), Color("12303a"))
+	draw_rect(r.grow(-1), Color("4ad6e8"), false, 1.0)
+	draw_line(r.position + Vector2(2, 2), r.position + Vector2(Grid.TILE - 2, 2), Color("7ae8f4"), 1.0)
 
 
 func _draw_item(c: Vector2i, it: Dictionary) -> void:
-	var r := _tile_rect(c).grow(-4)
-	draw_rect(r, ItemDB.item_color(it["item"]))
-	draw_rect(r, Color.WHITE, false, 1.0)
+	var center := Grid.cell_to_pos(c) + Vector2(0, sin(_amb * 2.2) * 1.0)   # gentle bob
+	PixelArt.draw_item(self, center, ItemDB.item_color(it["item"]), 0.5 + 0.5 * sin(_amb * 3.0))
 
 
 func _draw_npc(c: Vector2i, n: Dictionary) -> void:
-	var r := _tile_rect(c).grow(-2)
-	draw_rect(r, n.get("color", Color("6e7a8a")))
-	draw_rect(Rect2(r.position + Vector2(3, 1), Vector2(r.size.x - 6, 4)), Color("e0c9a6"))
-	draw_rect(r, Color("10141c"), false, 1.0)
+	var t := Transform2D(0.0, Grid.cell_to_pos(c))
+	draw_set_transform_matrix(t)
+	var col: Color = n.get("color", Color("6e7a8a"))
+	PixelArt.draw_actor(self, col, Vector2i.DOWN, col.lightened(0.45), false)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
 
 
 func _draw_camera(cam: Dictionary) -> void:
 	var armed := _cam_armed(cam)
-	var cone := Color(0.9, 0.2, 0.2, 0.28) if armed else Color(0.4, 0.4, 0.5, 0.12)
+	var pulse := 0.5 + 0.5 * sin(_amb * 8.0)
+	var cone := Color(0.95, 0.2, 0.2, 0.20 + 0.12 * pulse) if armed else Color(0.45, 0.5, 0.62, 0.10)
 	for c in _camera_cells(cam):
 		draw_rect(_tile_rect(c), cone)
-	draw_rect(_tile_rect(cam["cell"]).grow(-3), Color("c0c4cc"))
+	# Housing.
+	var hr := _tile_rect(cam["cell"]).grow(-3)
+	draw_rect(hr, Color("c0c4cc"))
+	draw_rect(hr, Color("6a6e78"), false, 1.0)
+	draw_rect(Rect2(hr.position, Vector2(hr.size.x, 1)), Color("e6e8ee"))
+	# Lens (red when armed).
 	var f := Vector2(cam["facing"])
-	draw_circle(Grid.cell_to_pos(cam["cell"]) + f * 4.0, 2.0, Color(0.9, 0.2, 0.2) if armed else Color(0.3, 0.3, 0.35))
+	var lens := Grid.cell_to_pos(cam["cell"]) + f * 4.0
+	draw_circle(lens, 2.5, Color(0.95, 0.15, 0.15) if armed else Color(0.28, 0.3, 0.36))
+	if armed:
+		draw_circle(lens, 4.0 + pulse * 1.5, Color(0.95, 0.2, 0.2, 0.18))
 
 
 func _draw_door_marks() -> void:
+	# A small "exit this way" chevron at each door opening — colorblind-safe
+	# (amber = locked, cyan = open), not a box over the painted doorway.
 	for side in exits.keys():
-		var col := Color("8a2a2a") if _is_locked(side) else Color("3a6e7a")
-		for c in _door_cells(side):
-			draw_rect(_tile_rect(c).grow(-5), col)
+		var cells: Array = _door_cells(side)
+		if cells.is_empty():
+			continue
+		var col := Color("e8a23a") if _is_locked(side) else Color("5ad6c4")
+		var d := Vector2(Grid.dir_vec(side))
+		var mid := (Grid.cell_to_pos(cells[0]) + Grid.cell_to_pos(cells[1])) * 0.5
+		var perp := Vector2(-d.y, d.x)
+		var tip := mid + d * 5.0
+		var a := mid - d * 1.0 + perp * 5.0
+		var b := mid - d * 1.0 - perp * 5.0
+		draw_circle(mid, 7.0, Color(col.r, col.g, col.b, 0.12 + 0.10 * sin(_amb * 3.0)))
+		draw_colored_polygon(PackedVector2Array([tip, a, b]), Color(col.r, col.g, col.b, 0.9))
+
+
+func _draw_atmosphere() -> void:
+	# Cool fluorescent wash from the ceiling.
+	draw_rect(Rect2(Vector2(0, Grid.TILE), Vector2(Grid.SCREEN.x, 6)), Color(0.7, 0.85, 1.0, 0.05))
+	# Hazard rooms breathe an orange/red alarm tint (stronger when a camera is armed).
+	if _hazard:
+		var armed := false
+		for cam in _cameras:
+			if _cam_armed(cam):
+				armed = true
+				break
+		var base_a := 0.10 + 0.04 * (0.5 + 0.5 * sin(_amb * 2.0))
+		var a := 0.22 + 0.10 * (0.5 + 0.5 * sin(_amb * 8.0)) if armed else base_a
+		draw_rect(Rect2(Vector2.ZERO, Grid.SCREEN), Color(0.9, 0.25, 0.15, a))
+	# Edge vignette for depth.
+	draw_texture(PixelArt.vignette(), Vector2.ZERO)
 
 
 func _is_locked(side: String) -> bool:

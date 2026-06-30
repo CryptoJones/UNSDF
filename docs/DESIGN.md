@@ -79,9 +79,10 @@ Concise, cryptic, world-building. Full trees in `scripts/data/dialogue_db.gd`.
 
 ## Mechanics (locked calls)
 
-- **Movement:** grid-locked, 16px steps, 4-directional. **Push** by walking into
-  a crate; **Pull** by holding Grab and backing straight out of a faced crate.
-  **No dash.**
+- **Movement:** grid-stepped, **8-directional** (cardinals + diagonals); the
+  character sprite faces the way you move. **Push** by walking into a crate
+  (cardinal only); **Pull** by holding Grab and backing straight out of a faced
+  crate. **No dash.**
 - **Soft-lock guard:** room-exit reset. Rooms are rebuilt from `RoomDB` on every
   entry, so crates snap back to start — you can never trap yourself.
 - **Threat model:** binary stealth/caught. Cameras have an armed/idle duty cycle
@@ -100,8 +101,28 @@ mistake is undone by leaving and re-entering.
 
 ## Visual direction
 
-Dark steel blues, industrial orange hazard lighting, harsh white fluorescents.
-Dithered metallic floors. The two shaders in `shaders/` enforce the era:
-`snes_quantize` posterizes the whole frame into a 16-bit color space, and
-`palette_swap` does indexed state-swaps (e.g. the screen shifting to alarm-red
-when a camera trips). Both are provided but not yet wired into the slice.
+**Modern 2D JRPG** (think Pokémon / a clean anime RPG) — *not* 16-bit pixel art.
+Dark steel blues, industrial orange hazard lighting, lived-in *Alien* / *Cowboy
+Bebop* sci-fi. Each room is a **painted background** (`assets/backgrounds/<id>.png`,
+one per RoomDB room) shown full-screen; the player and NPCs are **cel-shaded
+character sprites** composited on top. The 20x15 grid stays as invisible collision
+mapped onto the painted floor — the gameplay logic is unchanged, only the look.
+
+**Art is generated locally** with FLUX.2-klein-4B via mflux on makemake (see
+`~/LOCAL-FLUX.md`), then keyed/assembled into game assets:
+- `assets/backgrounds/` — 16 painted room scenes.
+- `assets/sprites/recruit_<dir>.png` — the player in 8 facing directions (5 unique
+  poses generated, 3 horizontally mirrored), white backgrounds keyed to transparent.
+- `assets/sprites/npc_<dialogue>.png` — NPC overworld sprites (rooms fall back to a
+  procedural marker for any NPC without art yet).
+- `assets/portraits/` — dialogue-box character portraits.
+
+Dialogue is a near-fullscreen comms panel; the body sizes to its content so long
+monologues never clip. UI renders crisp at native resolution (`canvas_items`
+stretch). Per CJ's colorblindness, gameplay cues use blue/orange, not red/green.
+
+The procedural 16-bit renderer (`scripts/render/`, `PixelArt`/`Decor`) and the
+`shaders/` graders are kept from the earlier pass as an unused fallback.
+
+**Display:** base coordinate space 320x240 (4:3), window **1280x960**; painted
+backgrounds and sprites use linear filtering and render at full window resolution.
