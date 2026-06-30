@@ -34,6 +34,10 @@ static var TREES := {
 
 	&"janitor": {
 		"root": {
+			"text": "I'm sorry I didn't try your game.. Wait.. you're not Clark...",
+			"next": "hint",
+		},
+		"hint": {
 			"set_flag": &"heard_keycard_hint",
 			"text": "Looking for a way out? Don't bother with the main gate; security's tighter than a vacuum seal. I saw a grease-monkey drop an Access Keycard near the Maintenance Corridor. If you're smart, you'll crawl the vents in B3 to get there. Don't let the cameras in A2 catch you.",
 		},

@@ -79,7 +79,7 @@ static var ROOMS := {
 			"south": {"to": &"C1"},
 		},
 		"npcs": [
-			{"cell": Vector2i(7, 7), "name": "Station Janitor", "dialogue": &"janitor", "color": Color("5a6e4a")},
+			{"cell": Vector2i(7, 7), "name": "Tevor Flurry", "dialogue": &"janitor", "color": Color("5a6e4a")},
 			{"cell": Vector2i(13, 7), "name": "Business Traveler", "dialogue": &"traveler", "color": Color("8a7a5a")},
 		],
 	},
