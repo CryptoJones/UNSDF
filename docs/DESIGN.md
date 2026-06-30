@@ -79,9 +79,10 @@ Concise, cryptic, world-building. Full trees in `scripts/data/dialogue_db.gd`.
 
 ## Mechanics (locked calls)
 
-- **Movement:** grid-locked, 16px steps, 4-directional. **Push** by walking into
-  a crate; **Pull** by holding Grab and backing straight out of a faced crate.
-  **No dash.**
+- **Movement:** grid-stepped, **8-directional** (cardinals + diagonals); the
+  character sprite faces the way you move. **Push** by walking into a crate
+  (cardinal only); **Pull** by holding Grab and backing straight out of a faced
+  crate. **No dash.**
 - **Soft-lock guard:** room-exit reset. Rooms are rebuilt from `RoomDB` on every
   entry, so crates snap back to start — you can never trap yourself.
 - **Threat model:** binary stealth/caught. Cameras have an armed/idle duty cycle
@@ -100,31 +101,28 @@ mistake is undone by leaving and re-entering.
 
 ## Visual direction
 
-Dark steel blues, industrial orange hazard lighting, harsh white fluorescents.
-Dithered metallic floors. The look is generated procedurally — `PixelArt`
-(`scripts/render/pixel_art.gd`) bakes ordered-dither metal deck plates, beveled
-riveted wall panels, shaded humanoid actors, glowing pickups and a soft vignette
-into cached textures, so the slice reads "16-bit SNES" with zero asset imports.
-Hazard rooms breathe an orange/red alarm wash that pulses when a camera arms.
+**Modern 2D JRPG** (think Pokémon / a clean anime RPG) — *not* 16-bit pixel art.
+Dark steel blues, industrial orange hazard lighting, lived-in *Alien* / *Cowboy
+Bebop* sci-fi. Each room is a **painted background** (`assets/backgrounds/<id>.png`,
+one per RoomDB room) shown full-screen; the player and NPCs are **cel-shaded
+character sprites** composited on top. The 20x15 grid stays as invisible collision
+mapped onto the painted floor — the gameplay logic is unchanged, only the look.
 
-`Decor` (`scripts/render/decor.gd`) fills each room with themed "space stuff" so
-the deck reads lived-in, not empty: wall-mounted furniture (screens, consoles,
-lockers, fuel tanks, pipe runs, vents, comm dishes), a macro floor-plate grid,
-painted walkways, a per-room centrepiece (reactor ring, holo-table, load pad,
-cable trench, compactor pit) and dense flat floor clutter. Every decor element
-is either mounted on a non-walkable wall tile or painted flat on the deck, so it
-never collides — the critical path and the D2 puzzle are untouched.
+**Art is generated locally** with FLUX.2-klein-4B via mflux on makemake (see
+`~/LOCAL-FLUX.md`), then keyed/assembled into game assets:
+- `assets/backgrounds/` — 16 painted room scenes.
+- `assets/sprites/recruit_<dir>.png` — the player in 8 facing directions (5 unique
+  poses generated, 3 horizontally mirrored), white backgrounds keyed to transparent.
+- `assets/sprites/npc_<dialogue>.png` — NPC overworld sprites (rooms fall back to a
+  procedural marker for any NPC without art yet).
+- `assets/portraits/` — dialogue-box character portraits.
 
-Dialogue is a near-fullscreen comms panel with a drawn character portrait; the
-body sizes to its content so long monologues never clip. UI renders crisp at
-native resolution (`canvas_items` stretch), so text stays sharp at any size.
+Dialogue is a near-fullscreen comms panel; the body sizes to its content so long
+monologues never clip. UI renders crisp at native resolution (`canvas_items`
+stretch). Per CJ's colorblindness, gameplay cues use blue/orange, not red/green.
 
-The two shaders in `shaders/` are optional full-frame graders for later:
-`snes_quantize` posterizes into a 16-bit color space, and `palette_swap` does
-indexed state-swaps. Neither is needed now that the art is drawn richly; they
-remain provided but unwired.
+The procedural 16-bit renderer (`scripts/render/`, `PixelArt`/`Decor`) and the
+`shaders/` graders are kept from the earlier pass as an unused fallback.
 
-**Display:** the pixel base is 320x240; the window ships at **1280x960** (a crisp
-4x integer scale that fills a 1080p monitor while keeping pixels sharp). Stretch
-is `viewport` + `keep` aspect + `integer` scale, so any resize snaps to whole
-multiples (4x max on 1080p; 4:3 pillarboxes on a 16:9 display).
+**Display:** base coordinate space 320x240 (4:3), window **1280x960**; painted
+backgrounds and sprites use linear filtering and render at full window resolution.

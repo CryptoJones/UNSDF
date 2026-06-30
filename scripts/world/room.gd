@@ -16,11 +16,13 @@ var _puzzle: Dictionary = {}
 
 var _crates: Dictionary = {}   # Vector2i -> Pushable
 var _npcs: Dictionary = {}     # Vector2i -> npc dict
+var _npc_sprited: Dictionary = {}   # Vector2i -> true if a painted sprite exists
 var _items: Dictionary = {}    # Vector2i -> { item: StringName }
 var _cameras: Array = []
 var _cam_time := 0.0
 var _amb := 0.0                # ambient clock for item glow / hazard pulse
 var _hazard := false
+var _bg_tex: Texture2D = null   # painted room background, if one exists
 
 
 func setup(id: StringName, data: Dictionary) -> void:
@@ -32,7 +34,7 @@ func setup(id: StringName, data: Dictionary) -> void:
 	_plates = data.get("plates", [])
 	_puzzle = data.get("puzzle", {})
 	_hazard = bool(data.get("hazard", false))
-	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	_add_background()
 
 	for c in data.get("crates", []):
 		var crate := Pushable.new()
@@ -42,6 +44,7 @@ func setup(id: StringName, data: Dictionary) -> void:
 
 	for n in data.get("npcs", []):
 		_npcs[n["cell"]] = n
+		_add_npc_sprite(n)
 
 	for it in data.get("items", []):
 		if GameState.has_flag(_taken_flag(it["item"])):
@@ -207,27 +210,51 @@ func _camera_cells(cam: Dictionary) -> Array:
 	return out
 
 
-# --- rendering -----------------------------------------------------------------
+# --- background ----------------------------------------------------------------
+
+## Load the painted background for this room (assets/backgrounds/<id>.png) into a
+## child Sprite2D scaled to fill the screen and sat behind the interactive layer.
+func _add_background() -> void:
+	var path := "res://assets/backgrounds/%s.png" % String(room_id).to_lower()
+	if not ResourceLoader.exists(path):
+		_bg_tex = null
+		return
+	_bg_tex = load(path)
+	var bg := Sprite2D.new()
+	bg.texture = _bg_tex
+	bg.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	bg.centered = false
+	bg.z_index = -10
+	bg.scale = Vector2(Grid.SCREEN.x / _bg_tex.get_width(), Grid.SCREEN.y / _bg_tex.get_height())
+	add_child(bg)
+
+
+## Give an NPC a painted sprite (assets/sprites/npc_<dialogue>.png) if one exists;
+## otherwise it falls back to the procedural marker drawn in _draw().
+func _add_npc_sprite(n: Dictionary) -> void:
+	var did := String(n.get("dialogue", ""))
+	var path := "res://assets/sprites/npc_%s.png" % did
+	if did == "" or not ResourceLoader.exists(path):
+		return
+	var tex: Texture2D = load(path)
+	var spr := Sprite2D.new()
+	spr.texture = tex
+	spr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	var target_h := 54.0
+	spr.scale = Vector2.ONE * (target_h / tex.get_height())
+	spr.position = Grid.cell_to_pos(n["cell"]) + Vector2(0, -target_h * 0.42)
+	spr.z_index = 10
+	add_child(spr)
+	_npc_sprited[n["cell"]] = true
+
+
+# --- rendering (interactive layer over the painted background) ------------------
 
 func _draw() -> void:
-	# Dithered metal deck, tiled across the whole screen.
-	draw_texture_rect(PixelArt.floor_texture(_floor), Rect2(Vector2.ZERO, Grid.SCREEN), true)
-
-	# Beveled, riveted wall plates around the border (door gaps left open).
-	var wall_tex := PixelArt.wall_texture(_wall)
-	for x in range(Grid.COLS):
-		_draw_border_cell(Vector2i(x, 0), wall_tex)
-		_draw_border_cell(Vector2i(x, Grid.ROWS - 1), wall_tex)
-	for y in range(Grid.ROWS):
-		_draw_border_cell(Vector2i(0, y), wall_tex)
-		_draw_border_cell(Vector2i(Grid.COLS - 1, y), wall_tex)
+	if _bg_tex == null:
+		draw_rect(Rect2(Vector2.ZERO, Grid.SCREEN), Color("12161e"))   # fallback fill
 
 	_draw_door_marks()
-
-	# Set dressing — fill the deck with themed "space stuff" (wall-mounted gear +
-	# flat floor decals). Drawn under the interactive layer below.
-	Decor.paint(self, room_id, _data, _occupied_cells(), 0.5 + 0.5 * sin(_amb * 2.0))
-
 	for p in _plates:
 		_draw_plate(p)
 	if not _puzzle.is_empty() and GameState.has_flag(_puzzle.get("solve_flag", &"")):
@@ -235,11 +262,10 @@ func _draw() -> void:
 	for c in _items:
 		_draw_item(c, _items[c])
 	for c in _npcs:
-		_draw_npc(c, _npcs[c])
+		if not _npc_sprited.has(c):
+			_draw_npc(c, _npcs[c])   # procedural fallback until a sprite exists
 	for cam in _cameras:
 		_draw_camera(cam)
-
-	_draw_atmosphere()
 
 
 func _tile_rect(c: Vector2i) -> Rect2:

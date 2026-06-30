@@ -6,7 +6,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Added
+### Changed — art direction pivot to a modern 2D JRPG (painted backgrounds)
+- Replaced the procedural 16-bit look with **painted, FLUX-generated art** (think
+  Pokémon / clean anime RPG), generated locally on makemake (FLUX.2-klein-4B via
+  mflux; pipeline documented in `~/LOCAL-FLUX.md`).
+- **16 painted room backgrounds** (`assets/backgrounds/<id>.png`), one per RoomDB
+  room, shown full-screen; `Room` composites the interactive layer on top and
+  keeps the 20x15 grid as invisible collision.
+- **8-direction player sprite** (`assets/sprites/recruit_<dir>.png`) — 5 unique
+  cel-shaded poses generated, 3 mirrored, white backgrounds keyed to transparent.
+- **8-way movement** — the controller now reads diagonals; the sprite faces the
+  move vector. Crate push stays cardinal-only. (`DESIGN.md` canon updated.)
+- **NPC sprites** wired with a procedural fallback (auto-upgrade per NPC as art
+  lands); dialogue-portrait art under `assets/portraits/`.
+- The procedural 16-bit renderer (`scripts/render/`) is kept as an unused fallback.
+
+### Added (earlier procedural pass, now superseded)
 - `PixelArt` render kit (`scripts/render/pixel_art.gd`): procedural, asset-free
   16-bit art — ordered-dither metal floors, beveled riveted wall plates, shaded
   humanoid actors (player + NPCs), glowing pickups, and a baked vignette.
