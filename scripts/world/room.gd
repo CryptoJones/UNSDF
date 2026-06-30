@@ -79,12 +79,30 @@ func start_cell() -> Vector2i:
 func is_wall(c: Vector2i) -> bool:
 	if c.x < 0 or c.y < 0 or c.x >= Grid.COLS or c.y >= Grid.ROWS:
 		return true
-	var border := c.x == 0 or c.y == 0 or c.x == Grid.COLS - 1 or c.y == Grid.ROWS - 1
+	var inset := Grid.WALL_INSET
+	var border := c.x < inset or c.y < inset or c.x >= Grid.COLS - inset or c.y >= Grid.ROWS - inset
 	if border:
-		return door_dir_for(c) == ""
+		return door_tunnel_dir(c) == ""   # solid unless this cell is a door tunnel
 	return false
 
 
+## The side whose door tunnel passes through cell c (anywhere in the 2-cell wall
+## band). Keeps a door passable end-to-end. "" if c is solid wall.
+func door_tunnel_dir(c: Vector2i) -> String:
+	var inset := Grid.WALL_INSET
+	if c.y < inset and exits.has("north") and c.x in Grid.NS_DOOR_COLS:
+		return "north"
+	if c.y >= Grid.ROWS - inset and exits.has("south") and c.x in Grid.NS_DOOR_COLS:
+		return "south"
+	if c.x < inset and exits.has("west") and c.y in Grid.EW_DOOR_ROWS:
+		return "west"
+	if c.x >= Grid.COLS - inset and exits.has("east") and c.y in Grid.EW_DOOR_ROWS:
+		return "east"
+	return ""
+
+
+## The side to transition through — only the OUTERMOST door cell triggers an exit
+## (you walk through the tunnel first, then step out).
 func door_dir_for(c: Vector2i) -> String:
 	if c.y == 0 and exits.has("north") and c.x in Grid.NS_DOOR_COLS:
 		return "north"
@@ -110,7 +128,7 @@ func item_at(c: Vector2i):
 
 
 func can_crate_enter(c: Vector2i) -> bool:
-	if is_wall(c) or door_dir_for(c) != "":
+	if is_wall(c) or door_tunnel_dir(c) != "":
 		return false
 	if _crates.has(c) or _npcs.has(c):
 		return false
@@ -355,17 +373,21 @@ func _draw_camera(cam: Dictionary) -> void:
 
 
 func _draw_door_marks() -> void:
+	# A small "exit this way" chevron at each door opening — colorblind-safe
+	# (amber = locked, cyan = open), not a box over the painted doorway.
 	for side in exits.keys():
-		var locked := _is_locked(side)
-		for c in _door_cells(side):
-			var r := _tile_rect(c)
-			# Frame.
-			draw_rect(r.grow(-2), Color("10141c"))
-			var col := Color("7a2424") if locked else Color("2f5a64")
-			draw_rect(r.grow(-4), col)
-			# Status light strip.
-			var light := Color("ff4a4a") if locked else Color("5ad6c4")
-			draw_rect(Rect2(r.position + Vector2(5, 3), Vector2(Grid.TILE - 10, 2)), light)
+		var cells: Array = _door_cells(side)
+		if cells.is_empty():
+			continue
+		var col := Color("e8a23a") if _is_locked(side) else Color("5ad6c4")
+		var d := Vector2(Grid.dir_vec(side))
+		var mid := (Grid.cell_to_pos(cells[0]) + Grid.cell_to_pos(cells[1])) * 0.5
+		var perp := Vector2(-d.y, d.x)
+		var tip := mid + d * 5.0
+		var a := mid - d * 1.0 + perp * 5.0
+		var b := mid - d * 1.0 - perp * 5.0
+		draw_circle(mid, 7.0, Color(col.r, col.g, col.b, 0.12 + 0.10 * sin(_amb * 3.0)))
+		draw_colored_polygon(PackedVector2Array([tip, a, b]), Color(col.r, col.g, col.b, 0.9))
 
 
 func _draw_atmosphere() -> void:
