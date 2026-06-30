@@ -9,6 +9,7 @@ const SCREEN := Vector2(320, 240)
 
 var _panel: Panel
 var _portrait: Portrait
+var _portrait_img: TextureRect
 var _speaker: Label
 var _text: RichTextLabel
 var _choice_box: VBoxContainer
@@ -83,6 +84,18 @@ func _build() -> void:
 	_portrait.position = Vector2(10, 10)
 	_portrait.size = Vector2(72, 72)
 	_panel.add_child(_portrait)
+
+	# Painted portrait (preferred); clipped to the same frame, hidden until a
+	# speaker with portrait art talks.
+	_portrait_img = TextureRect.new()
+	_portrait_img.position = Vector2(10, 10)
+	_portrait_img.size = Vector2(72, 72)
+	_portrait_img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_portrait_img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_portrait_img.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	_portrait_img.clip_contents = true
+	_portrait_img.visible = false
+	_panel.add_child(_portrait_img)
 
 	_speaker = _make_label(Vector2(92, 20), 16, Color("f0d264"))
 	_panel.add_child(_speaker)
@@ -171,10 +184,19 @@ func _process(delta: float) -> void:
 
 # --- dialogue ------------------------------------------------------------------
 
-func show_dialogue(speaker: String, portrait: Color, text: String, choices: Array) -> void:
+func show_dialogue(speaker: String, portrait: Color, text: String, choices: Array, portrait_id: String = "") -> void:
 	_panel.visible = true
 	_speaker.text = speaker
-	_portrait.set_tint(portrait)
+	# Painted portrait if we have art for this speaker; else the drawn face.
+	var path := "res://assets/portraits/%s.png" % portrait_id
+	if portrait_id != "" and ResourceLoader.exists(path):
+		_portrait_img.texture = load(path)
+		_portrait_img.visible = true
+		_portrait.visible = false
+	else:
+		_portrait_img.visible = false
+		_portrait.visible = true
+		_portrait.set_tint(portrait)
 	_text.text = text
 	# Give the body the whole box when there's nothing to choose; otherwise
 	# reserve the lower strip for the choices so neither clips.
