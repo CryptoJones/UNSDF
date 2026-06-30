@@ -1,0 +1,9 @@
+# Normalize line endings; treat Godot text resources as text.
+* text=auto eol=lf
+
+*.gd      text
+*.tscn    text
+*.tres    text
+*.godot   text
+*.gdshader text
+*.svg     text
