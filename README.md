@@ -15,9 +15,14 @@ yourself off the station.
 ## Run it
 
 ```bash
-godot --path .                       # open/run the project
-godot --headless --path . --quit     # import + sanity-check, no window
+godot --headless --path . --import   # FIRST run only: builds the class cache
+godot --path .                       # run the game
+godot -e --path .                    # open in the editor instead
 ```
+
+> First launch must be the `--import` pass (or just open the editor once). A
+> fresh clone has no `.godot/` cache, so `class_name` globals aren't registered
+> yet and a cold `godot --path .` dies with "Identifier ... not declared".
 
 Main scene: `scenes/main.tscn`.
 
