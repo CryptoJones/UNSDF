@@ -1,14 +1,22 @@
 #!/usr/bin/env bash
-# Self-contained launcher — zero manual steps, ever. Always imports assets before
-# launch (incremental, cheap); if the import errors on a stale/corrupt cache it
-# wipes .godot and rebuilds from scratch automatically. Guarantees a fresh clone
-# OR a `git pull` with new art comes up correctly instead of a black screen.
+# Self-contained launcher — zero manual steps, ever.
+#  - Always imports assets first (incremental); if the cache is stale/corrupt it
+#    wipes .godot and rebuilds, so a fresh clone or a `git pull` never black-screens.
+#  - On Linux it defaults to SOFTWARE rendering (llvmpipe) so it draws correctly
+#    on low-end / GPU-less boxes (e.g. the Linux-Mint Chromebook). This 2D game is
+#    light enough that software rendering is smooth. Force the GPU: `GPU=1 ./run.sh`.
 # Usage: ./run.sh [extra godot args]   (e.g. ./run.sh --headless --quit-after 30)
 set -euo pipefail
 cd "$(dirname "$0")"
 
 GODOT="${GODOT:-$(command -v godot || echo "$HOME/.local/bin/godot")}"
 [ -x "$GODOT" ] || { echo "Godot not found. Set \$GODOT or install godot on PATH." >&2; exit 1; }
+
+# Linux: software-render by default so it never black-screens on a GPU-less box.
+if [ "$(uname)" = "Linux" ] && [ "${GPU:-0}" != "1" ]; then
+  export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe
+  echo "Rendering: software GL (llvmpipe). Use 'GPU=1 ./run.sh' to force the GPU."
+fi
 
 echo "Using $("$GODOT" --version 2>/dev/null | head -1)"
 echo "Importing assets…"
