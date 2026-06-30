@@ -101,7 +101,30 @@ mistake is undone by leaving and re-entering.
 ## Visual direction
 
 Dark steel blues, industrial orange hazard lighting, harsh white fluorescents.
-Dithered metallic floors. The two shaders in `shaders/` enforce the era:
-`snes_quantize` posterizes the whole frame into a 16-bit color space, and
-`palette_swap` does indexed state-swaps (e.g. the screen shifting to alarm-red
-when a camera trips). Both are provided but not yet wired into the slice.
+Dithered metallic floors. The look is generated procedurally — `PixelArt`
+(`scripts/render/pixel_art.gd`) bakes ordered-dither metal deck plates, beveled
+riveted wall panels, shaded humanoid actors, glowing pickups and a soft vignette
+into cached textures, so the slice reads "16-bit SNES" with zero asset imports.
+Hazard rooms breathe an orange/red alarm wash that pulses when a camera arms.
+
+`Decor` (`scripts/render/decor.gd`) fills each room with themed "space stuff" so
+the deck reads lived-in, not empty: wall-mounted furniture (screens, consoles,
+lockers, fuel tanks, pipe runs, vents, comm dishes), a macro floor-plate grid,
+painted walkways, a per-room centrepiece (reactor ring, holo-table, load pad,
+cable trench, compactor pit) and dense flat floor clutter. Every decor element
+is either mounted on a non-walkable wall tile or painted flat on the deck, so it
+never collides — the critical path and the D2 puzzle are untouched.
+
+Dialogue is a near-fullscreen comms panel with a drawn character portrait; the
+body sizes to its content so long monologues never clip. UI renders crisp at
+native resolution (`canvas_items` stretch), so text stays sharp at any size.
+
+The two shaders in `shaders/` are optional full-frame graders for later:
+`snes_quantize` posterizes into a 16-bit color space, and `palette_swap` does
+indexed state-swaps. Neither is needed now that the art is drawn richly; they
+remain provided but unwired.
+
+**Display:** the pixel base is 320x240; the window ships at **1280x960** (a crisp
+4x integer scale that fills a 1080p monitor while keeping pixels sharp). Stretch
+is `viewport` + `keep` aspect + `integer` scale, so any resize snaps to whole
+multiples (4x max on 1080p; 4:3 pillarboxes on a 16:9 display).

@@ -111,10 +111,5 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _draw() -> void:
-	var s := float(Grid.TILE)
-	var half := s * 0.5
-	var body := Rect2(-half + 2, -half + 2, s - 4, s - 4)
-	draw_rect(body, Color("d6e0ea"))
-	draw_rect(body, Color("3a4a63"), false, 1.0)
-	var f := Vector2(facing)
-	draw_rect(Rect2(f.x * 4.0 - 2.0, f.y * 4.0 - 2.0, 4, 4), Color("e85a3a"))
+	# Spacer-rookie in a pale flight suit, orange shoulder light.
+	PixelArt.draw_actor(self, Color("c2cedd"), facing, Color("e85a3a"), true)
