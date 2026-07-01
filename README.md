@@ -98,7 +98,9 @@ See `docs/DESIGN.md` for the full grid, dialogue, mechanics, and puzzle spec.
 
 **Placeholder / next up:**
 - Art is code-drawn rectangles. Swap `room.gd` placeholder draws for a `TileSet`
-  + `TileMapLayer`, or promote rooms to hand-authored `.tscn` scenes with sprites.
+  + `TileMapLayer`, or restore generated room paintings under
+  `assets/backgrounds/<room_id>.png`; the runtime will use those backgrounds when
+  present.
 - Wire `snes_quantize` as a screen post-process and use `palette_swap` for the
   alarm-state mood shift when a camera trips.
 - Flesh out the optional rooms (Trash Compactor, Comm. Array, Life Support,

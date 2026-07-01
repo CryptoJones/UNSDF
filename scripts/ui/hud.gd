@@ -112,6 +112,7 @@ func _build() -> void:
 	_text.size = Vector2(296, 130)
 	_text.bbcode_enabled = false
 	_text.scroll_active = false
+	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_text.add_theme_font_size_override("normal_font_size", 13)
 	_text.add_theme_color_override("default_color", Color("d6e2ee"))
 	_panel.add_child(_text)

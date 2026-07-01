@@ -64,6 +64,7 @@ func _caught_sequence() -> void:
 		hud.status("CAUGHT! Escorted back.")
 		await hud.fade_to(1.0, 0.22)
 	_swap_room(GameState.checkpoint_room, GameState.checkpoint_side)
+	_after_enter(GameState.checkpoint_room, GameState.checkpoint_side)
 	if hud:
 		await hud.fade_to(0.0, 0.22)
 	_transitioning = false
