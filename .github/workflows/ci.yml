@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+# Allow only one concurrent run per ref; cancel stale ones.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Headless smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Godot 4.6.3
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: "4.6.3"
+          use-dotnet: false
+
+      - name: Godot version
+        run: godot --version
+
+      # Fresh checkout has no global class-name cache yet; an editor scan builds
+      # it (and imports resources). Tolerate first-pass parse noise.
+      - name: Build global class cache
+        run: godot --headless --editor --quit || true
+
+      - name: Run smoke test (141 invariant + logic checks)
+        run: godot --headless --path . test/smoke.tscn
