@@ -6,6 +6,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- GitHub Actions CI now runs the Godot 4.6.3 headless smoke test on pushes to
+  `main` and on pull requests.
+
+### Fixed
+- Caught respawns now refresh the room label/checkpoint HUD state after the
+  checkpoint room is rebuilt.
+- Dialogue body text now wraps inside the comms panel instead of clipping long
+  lines.
+- The D2 crate-puzzle smoke test now follows legal player push/pull movement
+  instead of teleporting crates directly.
+
 ### Changed — art direction pivot to a modern 2D JRPG (painted backgrounds)
 - Replaced the procedural 16-bit look with **painted, FLUX-generated art** (think
   Pokémon / clean anime RPG), generated locally on makemake (FLUX.2-klein-4B via
