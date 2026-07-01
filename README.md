@@ -1,14 +1,15 @@
 # UNSDF — "Wrong Side of the Airlock"
 
-A 16-bit sci-fi action-adventure in the spirit of the original *Legend of Zelda*
-engine: top-down, grid movement, one-screen-per-room transitions. You've just
-been rejected by the **United Nations Space Defense Force**. Level 1 is a single
-"dungeon" — the cramped, lived-in Tier-9 space port — and your job is to smuggle
-yourself off the station.
+A top-down sci-fi action-adventure in the spirit of the original *Legend of
+Zelda* engine: grid movement, one-screen-per-room transitions, painted 2D JRPG
+rooms, and push/pull crate puzzles. You've just been rejected by the **United
+Nations Space Defense Force**. Level 1 is a single "dungeon" — the cramped,
+lived-in Tier-9 space port — and your job is to smuggle yourself off the station.
 
 **Engine:** Godot 4.6.x (GL Compatibility renderer)
 **License:** Apache-2.0 · © 2026 Aaron K. Clark (CryptoJones)
-**Status:** v0.1.0 — runnable vertical-slice scaffold
+**Status:** v0.1.0 — runnable vertical slice with painted room, NPC, player, and
+dialogue portrait art
 
 ---
 
@@ -58,6 +59,10 @@ buffer — never directly from the B- or D-rows.
 ```
 project.godot              # display: 320x240, integer scale, nearest filter
 scenes/main.tscn           # boot scene -> scripts/main.gd
+assets/
+  backgrounds/             # painted room backgrounds, one per RoomDB id
+  portraits/               # painted dialogue portraits
+  sprites/                 # player and NPC sprites
 scripts/
   main.gd                  # builds World + Player + HUD, loads room A1
   autoload/
@@ -94,13 +99,10 @@ See `docs/DESIGN.md` for the full grid, dialogue, mechanics, and puzzle spec.
 
 ## Scaffolded vs. next
 
-**In place & runnable:** all systems above + the full critical path, end to end.
+**In place & runnable:** all systems above + the full critical path, end to end,
+with painted backgrounds, player sprites, NPC sprites, and dialogue portraits.
 
 **Placeholder / next up:**
-- Art is code-drawn rectangles. Swap `room.gd` placeholder draws for a `TileSet`
-  + `TileMapLayer`, or restore generated room paintings under
-  `assets/backgrounds/<room_id>.png`; the runtime will use those backgrounds when
-  present.
 - Wire `snes_quantize` as a screen post-process and use `palette_swap` for the
   alarm-state mood shift when a camera trips.
 - Flesh out the optional rooms (Trash Compactor, Comm. Array, Life Support,
